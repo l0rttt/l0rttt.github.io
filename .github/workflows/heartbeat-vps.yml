@@ -1,0 +1,41 @@
+name: Cron VM Heartbeat
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/heartbeat-vps.yml"
+      - "heartbeat-vps/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cron-vm-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  pulse:
+    name: Start an ephemeral GitHub-hosted VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Emit live runner heartbeat
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Cron VM heartbeat" >> "$GITHUB_STEP_SUMMARY"
+          echo "- UTC time: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runner: $RUNNER_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- OS: $(uname -srm)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- CPU threads: $(nproc)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Event: $GITHUB_EVENT_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo
+          echo "This is a short-lived CI runner, not a persistent VPS."
+          echo "The runner will be decommissioned when this job completes."
+          sleep 20
+          echo "Heartbeat complete."
