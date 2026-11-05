@@ -150,7 +150,7 @@
         const recent = age < 12 * 60000;
         const good = recent && (active || lastRun.conclusion === "success");
         if (good && active) setState("ok","RUN IN PROGRESS","A GitHub-hosted runner is currently executing the latest scheduled job.");
-        else if (good) setState("ok","RECENT PULSE","The latest cron run completed successfully. The runner itself has already been decommissioned.");
+        else if (good) { const label = lastRun.event === "schedule" ? "Scheduled cron pulse" : "Workflow run (" + lastRun.event + ")"; setState("ok","RECENT PULSE",label + " completed successfully. The temporary runner has already been decommissioned."); }
         else if (lastRun.conclusion === "failure") setState("bad","LAST RUN FAILED","The latest scheduled workflow failed. Open the workflow log to inspect it.");
         else setState("wait","HEARTBEAT STALE","No recent successful pulse is visible. GitHub may have delayed, skipped, or disabled the schedule.");
         $("runstate").textContent = active ? lastRun.status : (lastRun.conclusion || "completed");
