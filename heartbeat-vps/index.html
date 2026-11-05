@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <title>GitHub Cron VM Monitor</title>
+  <style>
+    :root { color-scheme: dark; --bg:#080e19; --panel:#111b2c; --line:#26364d; --muted:#91a3ba; --text:#edf4ff; --green:#48d597; --amber:#f4bd58; --red:#ff7373; --blue:#7db5ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 15% 0%,#142844 0,transparent 38%),var(--bg); color:var(--text); font:15px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif; }
+    main { width:min(1050px,calc(100% - 32px)); margin:0 auto; padding:42px 0 56px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:32px; }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.02em; }
+    .mark { width:40px;height:40px;border:1px solid #355276;border-radius:13px;display:grid;place-items:center;background:#10223a;color:var(--blue);font-size:20px; }
+    .eyebrow { color:var(--blue); text-transform:uppercase; letter-spacing:.16em; font-size:11px; font-weight:800; }
+    h1 { font-size:clamp(30px,5vw,48px); letter-spacing:-.04em; line-height:1.08; margin:8px 0 12px; }
+    .lead { max-width:720px;color:var(--muted);font-size:16px;margin:0 0 28px; }
+    .pill { border:1px solid var(--line);border-radius:999px;padding:7px 12px;color:var(--muted);font-size:12px; }
+    .grid { display:grid;grid-template-columns:repeat(12,1fr);gap:14px; }
+    .card { background:linear-gradient(145deg,rgba(20,34,54,.96),rgba(13,23,38,.96));border:1px solid var(--line);border-radius:18px;padding:20px;min-width:0; }
+    .hero { grid-column:span 8; min-height:218px; }
+    .side { grid-column:span 4; }
+    .third { grid-column:span 4; }
+    .wide { grid-column:span 12; }
+    .kicker {color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;}
+    .statusline {display:flex;align-items:center;gap:12px;margin:15px 0 8px;}
+    .dot {width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 18px currentColor;flex:none;}
+    .dot.ok {background:var(--green);color:var(--green);}
+    .dot.bad {background:var(--red);color:var(--red);}
+    .dot.wait {background:var(--amber);color:var(--amber);}
+    .state {font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:-.03em;}
+    .desc {color:var(--muted);max-width:600px;}
+    .value {font-size:23px;font-weight:750;letter-spacing:-.02em;margin-top:9px;overflow-wrap:anywhere;}
+    .sub {color:var(--muted);font-size:13px;margin-top:4px;}
+    .bar {height:7px;background:#26364d;border-radius:8px;overflow:hidden;margin-top:14px;}
+    .bar span {display:block;height:100%;width:0;background:var(--green);transition:width .35s;}
+    .actions {display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;}
+    a.btn {display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #395477;border-radius:11px;color:var(--text);text-decoration:none;font-weight:650;font-size:13px;background:#142945;}
+    a.btn.secondary {background:transparent;border-color:var(--line);color:#bdcce0;}
+    a.btn:hover {border-color:var(--blue);}
+    .notice {border-left:3px solid var(--amber);background:#211c12;padding:14px 16px;border-radius:8px;color:#e9d8b3;font-size:13px;margin-top:18px;}
+    .steps {display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;}
+    .step {border:1px solid var(--line);border-radius:13px;padding:14px;background:#0d1726;}
+    .step b {display:block;margin-bottom:5px;}
+    .step span {color:var(--muted);font-size:13px;}
+    footer {color:#71849d;font-size:12px;margin-top:24px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    code {color:#b6d4ff;}
+    @media(max-width:720px){.hero,.side,.third{grid-column:span 12}.steps{grid-template-columns:1fr}main{padding-top:26px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="brand"><div class="mark">⌁</div><div>CRON VM MONITOR<div class="eyebrow">GitHub Actions · public demo</div></div></div>
+    <div class="pill" id="checked">Connecting to GitHub…</div>
+  </div>
+
+  <div class="eyebrow">Scheduled compute heartbeat</div>
+  <h1>A live view of the runner cycle.</h1>
+  <p class="lead">This dashboard reads the latest real GitHub Actions run for this repository. It shows whether the five-minute cron is getting fresh runner time—not whether a permanent VPS is online.</p>
+
+  <section class="grid">
+    <article class="card hero">
+      <div class="kicker">Latest cron pulse</div>
+      <div class="statusline"><span class="dot wait" id="dot"></span><div class="state" id="state">Checking…</div></div>
+      <div class="desc" id="description">Fetching the latest workflow run directly from GitHub.</div>
+      <div class="bar"><span id="freshbar"></span></div>
+      <div class="sub" id="freshness">No heartbeat has been read yet.</div>
+      <div class="actions">
+        <a class="btn" href="https://github.com/l0rttt/l0rttt.github.io/actions/workflows/heartbeat-vps.yml" target="_blank" rel="noreferrer">Open live workflow ↗</a>
+        <a class="btn secondary" href="https://github.com/l0rttt/l0rttt.github.io" target="_blank" rel="noreferrer">Repository ↗</a>
+      </div>
+    </article>
+
+    <article class="card side">
+      <div class="kicker">Last successful run</div>
+      <div class="value" id="lastsuccess">—</div>
+      <div class="sub" id="lastsuccesssub">Waiting for GitHub API</div>
+      <div style="height:18px"></div>
+      <div class="kicker">Workflow cadence</div>
+      <div class="value">Every 5 min</div>
+      <div class="sub">GitHub cron schedule · UTC</div>
+    </article>
+
+    <article class="card third">
+      <div class="kicker">Runner environment</div>
+      <div class="value">ubuntu-latest</div>
+      <div class="sub">GitHub-hosted virtual machine</div>
+    </article>
+    <article class="card third">
+      <div class="kicker">Current run state</div>
+      <div class="value" id="runstate">—</div>
+      <div class="sub" id="runstatesub">Latest workflow job</div>
+    </article>
+    <article class="card third">
+      <div class="kicker">Run identifier</div>
+      <div class="value" id="runid">—</div>
+      <div class="sub" id="runbranch">Branch: —</div>
+    </article>
+
+    <article class="card wide">
+      <div class="kicker">What this setup actually does</div>
+      <div class="steps">
+        <div class="step"><b>1 · Cron scheduler</b><span>GitHub queues a scheduled workflow every five minutes. Starts can be delayed or missed during platform load.</span></div>
+        <div class="step"><b>2 · Temporary VM</b><span>GitHub provisions an Ubuntu runner for the job. The runner is not a persistent machine.</span></div>
+        <div class="step"><b>3 · Job exits</b><span>When the job finishes, GitHub decommissions the hosted VM. The next cron pulse is a new VM.</span></div>
+      </div>
+      <div class="notice"><b>Important:</b> This is a cron-based compute/heartbeat demo, not a 24×7 VPS. It has no permanent process, stable server IP, inbound API endpoint, or durable local disk. It cannot host your Telegram bot/backend continuously.</div>
+    </article>
+  </section>
+
+  <footer><span>Auto-refreshes from the GitHub Actions API every 2 minutes.</span><span id="clock">—</span></footer>
+</main>
+<script>
+(() => {
+  const api = "https://api.github.com/repos/l0rttt/l0rttt.github.io/actions/workflows/heartbeat-vps.yml/runs?per_page=10";
+  const $ = id => document.getElementById(id);
+  const fmt = value => value ? new Date(value).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"medium"}) : "—";
+  let lastRun = null;
+
+  function clock() { $("clock").textContent = "Local time: " + new Date().toLocaleTimeString(); }
+  function setState(kind, title, detail) {
+    $("dot").className = "dot " + kind;
+    $("state").textContent = title;
+    $("description").textContent = detail;
+  }
+  async function refresh() {
+    $("checked").textContent = "Refreshing · " + new Date().toLocaleTimeString();
+    try {
+      const response = await fetch(api, {headers:{"Accept":"application/vnd.github+json"}, cache:"no-store"});
+      if (!response.ok) throw new Error("GitHub API returned HTTP " + response.status);
+      const data = await response.json();
+      const runs = data.workflow_runs || [];
+      lastRun = runs[0] || null;
+      const success = runs.find(r => r.conclusion === "success");
+      $("lastsuccess").textContent = success ? fmt(success.updated_at) : "Not yet";
+      $("lastsuccesssub").textContent = success ? "Run #" + success.run_number : "A successful run has not appeared yet";
+      if (!lastRun) {
+        setState("wait","Waiting for first run","The workflow exists, but GitHub has not returned a run yet.");
+        $("runstate").textContent = "Waiting";
+        $("runstatesub").textContent = "No workflow runs found";
+        $("runid").textContent = "—"; $("runbranch").textContent = "Branch: —";
+        $("freshness").textContent = "No heartbeat yet"; $("freshbar").style.width = "0%";
+      } else {
+        const time = lastRun.run_started_at || lastRun.created_at;
+        const age = Math.max(0,Date.now() - new Date(time).getTime());
+        const ageMin = Math.floor(age / 60000);
+        const active = lastRun.status !== "completed";
+        const recent = age < 12 * 60000;
+        const good = recent && (active || lastRun.conclusion === "success");
+        if (good && active) setState("ok","RUN IN PROGRESS","A GitHub-hosted runner is currently executing the latest scheduled job.");
+        else if (good) setState("ok","RECENT PULSE","The latest cron run completed successfully. The runner itself has already been decommissioned.");
+        else if (lastRun.conclusion === "failure") setState("bad","LAST RUN FAILED","The latest scheduled workflow failed. Open the workflow log to inspect it.");
+        else setState("wait","HEARTBEAT STALE","No recent successful pulse is visible. GitHub may have delayed, skipped, or disabled the schedule.");
+        $("runstate").textContent = active ? lastRun.status : (lastRun.conclusion || "completed");
+        $("runstatesub").textContent = "Event: " + lastRun.event + " · " + (lastRun.head_branch || "unknown branch");
+        $("runid").textContent = "#" + lastRun.run_number;
+        $("runbranch").textContent = "Run ID: " + lastRun.id;
+        $("freshness").textContent = "Latest run started " + ageMin + " minute(s) ago · " + fmt(time);
+        $("freshbar").style.width = Math.max(0,Math.min(100,100 - age / (12 * 60000) * 100)) + "%";
+      }
+      $("checked").textContent = "GitHub API · updated " + new Date().toLocaleTimeString();
+    } catch (error) {
+      setState("wait","API UNAVAILABLE","Could not read GitHub Actions right now: " + error.message);
+      $("checked").textContent = "GitHub API unavailable";
+      $("freshness").textContent = "Try again in a moment.";
+    }
+  }
+  refresh();
+  setInterval(refresh,120000);
+  clock(); setInterval(clock,1000);
+})();
+</script>
+</body>
+</html>
